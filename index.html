@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MiniChat — Amigos y Grupos</title>
+  <style>
+    :root{
+      --bg:#0f1115;--panel:#151822;--panel-2:#1b2030;--accent:#6ee7ff;--accent-2:#7c5cff;--text:#e9ecf1;--muted:#9aa4b2;--danger:#ff5c7a;--ok:#46e39b;
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 700px at 10% -10%,#1b2236 0%,#0f1115 45%),
+                      radial-gradient(900px 600px at 120% 20%,#1a1f31 0%,#0f1115 60%);
+         color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Noto Sans",sans-serif;}
+    .center{min-height:100%;display:grid;place-items:center;padding:24px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));
+          border:1px solid rgba(255,255,255,0.08);backdrop-filter: blur(8px);
+          border-radius:var(--radius);padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.35);width:100%;max-width:480px}
+    h1{margin:0 0 6px;font-size:28px}
+    p.sub{margin:0 0 18px;color:var(--muted)}
+    label{display:block;color:var(--muted);font-size:14px;margin:10px 0 6px}
+    input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #2a3146;background:#0f1320;color:var(--text);outline:none}
+    input:focus{border-color:var(--accent)}
+    .row{display:flex;gap:12px;align-items:center}
+    .btn{appearance:none;border:0;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#08101a;
+         font-weight:700;padding:12px 16px;border-radius:12px;cursor:pointer;transition:transform .05s ease;}
+    .btn:hover{transform:translateY(-1px)}
+    .btn.secondary{background:#232a42;color:var(--text);border:1px solid #2f3758}
+    .btn.danger{background:linear-gradient(135deg,#ff758f,#ff4162);color:#1a0b12}
+
+    /* App */
+    .app{display:grid;grid-template-columns:280px 1fr;gap:14px;height:100vh;padding:16px}
+    .sidebar{background:var(--panel);border:1px solid #212946;border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden}
+    .me{display:flex;gap:10px;align-items:center;padding:14px;border-bottom:1px solid #232c4f}
+    .avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--panel-2);font-weight:800}
+    .me .info{flex:1}
+    .me .info .name{font-weight:700}
+    .me .info .id{font-size:12px;color:var(--muted)}
+    .tabs{display:flex;gap:8px;padding:10px}
+    .tab{flex:1}
+    .search{padding:10px}
+    .search input{background:#0e1320}
+    .list{flex:1;overflow:auto;padding:6px 10px}
+    .item{display:flex;gap:10px;align-items:center;padding:10px;border-radius:12px;cursor:pointer;border:1px solid transparent}
+    .item:hover{background:#171c2b;border-color:#222b49}
+    .item.active{background:#151b2b;border-color:#2a3560}
+    .item .title{font-weight:700}
+    .item .subtitle{font-size:12px;color:var(--muted)}
+
+    .content{background:var(--panel);border:1px solid #212946;border-radius:var(--radius);display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+    .chat-header{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #232c4f}
+    .chat-title{font-weight:800}
+    .chat-sub{font-size:12px;color:var(--muted)}
+    .msgs{overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+    .bubble{max-width:72%;padding:12px 14px;border-radius:14px;border:1px solid #273055;background:#111525;}
+    .bubble.me{align-self:flex-end;background:linear-gradient(135deg,#17243a,#0f172a);border-color:#2b375a}
+    .bubble .meta{font-size:11px;color:var(--muted);margin-top:6px}
+    .composer{padding:12px;border-top:1px solid #232c4f;display:flex;gap:10px}
+    .composer input{flex:1}
+
+    .section-title{padding:8px 14px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+    .hint{font-size:12px;color:var(--muted)}
+    .pill{font-size:11px;padding:4px 8px;border-radius:999px;background:#20263a;border:1px solid #2b3558;color:var(--muted)}
+
+    .empty{display:grid;place-items:center;color:var(--muted)}
+
+    .floating{position:fixed;bottom:18px;left:18px;display:flex;gap:8px}
+  </style>
+</head>
+<body>
+  <!-- LOGIN -->
+  <div id="screen-login" class="center">
+    <form id="loginForm" class="card" autocomplete="off">
+      <h1>MiniChat</h1>
+      <p class="sub">Inicia sesión solo con nombre y contraseña. Si no existe tu cuenta, se crea al instante.</p>
+      <label>Nombre de usuario</label>
+      <input id="login-username" placeholder="p. ej. kevin" required />
+      <label>Contraseña</label>
+      <input id="login-password" type="password" placeholder="••••••••" required />
+      <div class="row" style="margin-top:16px;justify-content:space-between">
+        <button class="btn" type="submit">Entrar</button>
+        <button class="btn secondary" type="button" id="wipeData">Borrar datos locales</button>
+      </div>
+      <p class="hint" style="margin-top:12px">Nota: Este demo guarda todo <b>solo en tu navegador</b> usando LocalStorage.</p>
+    </form>
+  </div>
+
+  <!-- APP -->
+  <div id="screen-app" class="app" style="display:none">
+    <aside class="sidebar">
+      <div class="me">
+        <div class="avatar" id="meAvatar"></div>
+        <div class="info">
+          <div class="name" id="meName">—</div>
+          <div class="id">ID: <span id="meId">—</span></div>
+        </div>
+        <button class="btn secondary" id="logoutBtn">Salir</button>
+      </div>
+
+      <div class="tabs">
+        <button class="btn tab" id="tabContacts">Contactos</button>
+        <button class="btn tab" id="tabGroups">Grupos</button>
+      </div>
+
+      <div class="search">
+        <input id="searchInput" placeholder="Buscar…" />
+      </div>
+
+      <div class="section-title" id="sectionLabel">Contactos</div>
+
+      <div class="list" id="list"></div>
+
+      <div style="padding:10px;border-top:1px solid #232c4f;display:grid;gap:8px">
+        <div id="contactActions">
+          <div class="row" style="gap:8px">
+            <input id="addContactInput" placeholder="Nombre de usuario" />
+            <button class="btn" id="addContactBtn">Agregar</button>
+          </div>
+          <p class="hint">Agrega a alguien por su nombre (si usa la misma página).</p>
+        </div>
+        <div id="groupActions" style="display:none">
+          <div class="row" style="gap:8px">
+            <input id="groupNameInput" placeholder="Nombre del grupo" />
+            <button class="btn" id="createGroupBtn">Crear grupo</button>
+          </div>
+          <p class="hint">El creador puede añadir personas por nombre.</p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <div class="chat-header">
+        <div class="avatar" id="chatAvatar">💬</div>
+        <div>
+          <div class="chat-title" id="chatTitle">Selecciona un chat</div>
+          <div class="chat-sub" id="chatSub">—</div>
+        </div>
+        <div style="margin-left:auto" class="row">
+          <span class="pill" id="pillType">—</span>
+          <button class="btn" id="addMemberBtn" style="display:none;margin-left:8px">Añadir miembro</button>
+        </div>
+      </div>
+
+      <div class="msgs" id="msgs">
+        <div class="empty">No hay mensajes todavía.</div>
+      </div>
+
+      <div class="composer">
+        <input id="msgInput" placeholder="Escribe un mensaje…" disabled />
+        <button class="btn" id="sendBtn" disabled>Enviar</button>
+      </div>
+    </main>
+  </div>
+
+  <div class="floating">
+    <button class="btn secondary" id="exportBtn">Exportar datos</button>
+    <button class="btn secondary" id="importBtn">Importar datos</button>
+  </div>
+
+  <script>
+    // ============ Utilidades de almacenamiento (simula un "servidor" local) ==========
+    const DB_KEY = 'minichat_db_v1';
+    const Session = { current: null };
+
+    function loadDB(){
+      const raw = localStorage.getItem(DB_KEY);
+      if(!raw) return { users:{}, dms:{}, groups:{} };
+      try { return JSON.parse(raw); } catch(e){ return { users:{}, dms:{}, groups:{} } }
+    }
+    function saveDB(db){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+
+    function id(){ return Math.random().toString(36).slice(2,10); }
+    function initials(name){
+      return name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('')||'🙂';
+    }
+
+    // ============ Autenticación simple (solo navegador) ============
+    function login(username, password){
+      username = username.trim().toLowerCase();
+      const db = loadDB();
+      const exists = db.users[username];
+      if(!exists){
+        db.users[username] = { username, password, contacts:[], groups:[] };
+        saveDB(db);
+      } else if(exists.password !== password) {
+        throw new Error('Contraseña incorrecta');
+      }
+      Session.current = username;
+      return db.users[username];
+    }
+
+    function logout(){ Session.current = null; }
+    function me(){ if(!Session.current) return null; return loadDB().users[Session.current]; }
+
+    // ============ Contactos & Grupos ============
+    function addContact(targetName){
+      const db = loadDB();
+      const user = db.users[Session.current];
+      const t = targetName.trim().toLowerCase();
+      if(!db.users[t]){ alert('Ese usuario aún no existe en esta página.'); return; }
+      if(t===user.username){ alert('No puedes agregarte a ti mismo.'); return; }
+      if(!user.contacts.includes(t)) user.contacts.push(t);
+      saveDB(db);
+      renderList();
+    }
+
+    function dmKey(a,b){ return 'dm:' + [a,b].sort().join('|'); }
+
+    function sendDM(to, text){
+      const db = loadDB();
+      const key = dmKey(Session.current, to);
+      if(!db.dms[key]) db.dms[key] = [];
+      db.dms[key].push({ id:id(), from:Session.current, to, text, at:Date.now() });
+      saveDB(db);
+    }
+
+    function createGroup(name){
+      const db = loadDB();
+      const gid = 'g:'+id();
+      db.groups[gid] = { id:gid, name:name.trim(), owner:Session.current, members:[Session.current], messages:[] };
+      db.users[Session.current].groups.push(gid);
+      saveDB(db); return gid;
+    }
+
+    function addToGroup(gid, username){
+      const db = loadDB();
+      const g = db.groups[gid];
+      if(!g) return alert('Grupo no encontrado');
+      if(g.owner !== Session.current) return alert('Solo el creador puede agregar miembros.');
+      const u = username.trim().toLowerCase();
+      if(!db.users[u]) return alert('Ese usuario no existe aquí aún.');
+      if(!g.members.includes(u)) g.members.push(u);
+      if(!db.users[u].groups.includes(gid)) db.users[u].groups.push(gid);
+      saveDB(db); renderList();
+    }
+
+    function sendGroup(gid, text){
+      const db = loadDB();
+      const g = db.groups[gid];
+      if(!g) return;
+      if(!g.members.includes(Session.current)) return alert('No estás en este grupo.');
+      g.messages.push({ id:id(), from:Session.current, text, at:Date.now() });
+      saveDB(db);
+    }
+
+    // ============ UI Estado ============
+    const ui = {
+      screenLogin: document.getElementById('screen-login'),
+      screenApp: document.getElementById('screen-app'),
+      loginForm: document.getElementById('loginForm'),
+      inUser: document.getElementById('login-username'),
+      inPass: document.getElementById('login-password'),
+      wipeBtn: document.getElementById('wipeData'),
+      logoutBtn: document.getElementById('logoutBtn'),
+      meAvatar: document.getElementById('meAvatar'),
+      meName: document.getElementById('meName'),
+      meId: document.getElementById('meId'),
+      tabContacts: document.getElementById('tabContacts'),
+      tabGroups: document.getElementById('tabGroups'),
+      sectionLabel: document.getElementById('sectionLabel'),
+      searchInput: document.getElementById('searchInput'),
+      list: document.getElementById('list'),
+      contactActions: document.getElementById('contactActions'),
+      groupActions: document.getElementById('groupActions'),
+      addContactInput: document.getElementById('addContactInput'),
+      addContactBtn: document.getElementById('addContactBtn'),
+      groupNameInput: document.getElementById('groupNameInput'),
+      createGroupBtn: document.getElementById('createGroupBtn'),
+      chatAvatar: document.getElementById('chatAvatar'),
+      chatTitle: document.getElementById('chatTitle'),
+      chatSub: document.getElementById('chatSub'),
+      pillType: document.getElementById('pillType'),
+      msgs: document.getElementById('msgs'),
+      msgInput: document.getElementById('msgInput'),
+      sendBtn: document.getElementById('sendBtn'),
+      exportBtn: document.getElementById('exportBtn'),
+      importBtn: document.getElementById('importBtn'),
+      addMemberBtn: document.getElementById('addMemberBtn'),
+    };
+
+    let state = { tab:'contacts', selected:null }; // selected: {type:'dm', with:'user'} | {type:'group', gid}
+
+    function showApp(){
+      ui.screenLogin.style.display='none';
+      ui.screenApp.style.display='grid';
+      const user = me();
+      ui.meAvatar.textContent = initials(user.username);
+      ui.meName.textContent = user.username;
+      ui.meId.textContent = user.username;
+      renderList();
+    }
+
+    function showLogin(){
+      ui.screenApp.style.display='none';
+      ui.screenLogin.style.display='grid';
+    }
+
+    function setTab(tab){
+      state.tab = tab;
+      ui.sectionLabel.textContent = tab==='contacts'? 'Contactos':'Grupos';
+      ui.contactActions.style.display = tab==='contacts'? 'block':'none';
+      ui.groupActions.style.display = tab==='groups'? 'block':'none';
+      renderList();
+    }
+
+    function renderList(){
+      const db = loadDB();
+      const user = db.users[Session.current];
+      ui.list.innerHTML = '';
+      const q = ui.searchInput.value.trim().toLowerCase();
+
+      if(state.tab==='contacts'){
+        const items = user.contacts.filter(u=>!q || u.includes(q));
+        if(items.length===0){ ui.list.innerHTML = '<div class="empty" style="padding:20px">Sin contactos</div>'; }
+        items.forEach(u=>{
+          const el = document.createElement('div'); el.className='item';
+          if(state.selected?.type==='dm' && state.selected.with===u) el.classList.add('active');
+          el.innerHTML = `<div class="avatar">${initials(u)}</div>
+                          <div style="flex:1">
+                            <div class="title">${u}</div>
+                            <div class="subtitle">Mensaje privado</div>
+                          </div>`;
+          el.onclick = ()=> selectDM(u);
+          ui.list.appendChild(el);
+        });
+      } else {
+        const items = user.groups.filter(gid=>{
+          const g = db.groups[gid];
+          return g && (!q || g.name.toLowerCase().includes(q));
+        });
+        if(items.length===0){ ui.list.innerHTML = '<div class="empty" style="padding:20px">Sin grupos</div>'; }
+        items.forEach(gid=>{
+          const g = db.groups[gid];
+          const el = document.createElement('div'); el.className='item';
+          if(state.selected?.type==='group' && state.selected.gid===gid) el.classList.add('active');
+          el.innerHTML = `<div class="avatar">👥</div>
+                          <div style="flex:1">
+                            <div class="title">${g.name}</div>
+                            <div class="subtitle">${g.members.length} miembros</div>
+                          </div>`;
+          el.onclick = ()=> selectGroup(gid);
+          ui.list.appendChild(el);
+        });
+      }
+    }
+
+    function selectDM(username){
+      state.selected = { type:'dm', with: username };
+      ui.chatAvatar.textContent = initials(username);
+      ui.chatTitle.textContent = username;
+      ui.chatSub.textContent = 'Chat privado';
+      ui.pillType.textContent = 'Privado';
+      ui.msgInput.disabled = false; ui.sendBtn.disabled = false;
+      ui.addMemberBtn.style.display = 'none';
+      renderMessages();
+    }
+
+    function selectGroup(gid){
+      const db = loadDB();
+      const g = db.groups[gid];
+      state.selected = { type:'group', gid };
+      ui.chatAvatar.textContent = '👥';
+      ui.chatTitle.textContent = g.name;
+      ui.chatSub.textContent = `${g.members.length} miembros • Creador: ${g.owner}`;
+      ui.pillType.textContent = 'Grupo';
+      ui.msgInput.disabled = false; ui.sendBtn.disabled = false;
+      ui.addMemberBtn.style.display = (g.owner === Session.current) ? 'inline-block' : 'none';
+      renderMessages();
+    }
+
+    function renderMessages(){
+      ui.msgs.innerHTML = '';
+      const db = loadDB();
+      let messages = [];
+      if(state.selected?.type==='dm'){
+        const key = dmKey(Session.current, state.selected.with);
+        messages = db.dms[key]||[];
+      } else if(state.selected?.type==='group'){
+        const g = db.groups[state.selected.gid];
+        messages = g?.messages||[];
+      }
+      if(messages.length===0){
+        const empty = document.createElement('div'); empty.className='empty'; empty.textContent='No hay mensajes todavía.'; ui.msgs.appendChild(empty);
+      } else {
+        messages.forEach(m=>{
+          const isMe = m.from===Session.current;
+          const b = document.createElement('div');
+          b.className = 'bubble' + (isMe? ' me':'');
+          b.innerHTML = `<div>${escapeHtml(m.text)}</div><div class="meta">${isMe? 'Tú':m.from} • ${new Date(m.at).toLocaleString()}</div>`;
+          ui.msgs.appendChild(b);
+        });
+        ui.msgs.scrollTop = ui.msgs.scrollHeight;
+      }
+    }
+
+    function escapeHtml(s){
+      return s.replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",
+                                         ">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+    }
+
+    // ============ Eventos ============
+    ui.loginForm.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      try{
+        const u = login(ui.inUser.value, ui.inPass.value);
+        sessionStorage.setItem('minichat_last_user', u.username);
+        showApp();
+      }catch(err){ alert(err.message); }
+    });
+
+    ui.wipeBtn.onclick = ()=>{ if(confirm('Esto borrará todos los datos locales de MiniChat en este navegador.')){ localStorage.removeItem(DB_KEY); sessionStorage.removeItem('minichat_last_user'); location.reload(); } };
+    ui.logoutBtn.onclick = ()=>{ logout(); sessionStorage.removeItem('minichat_last_user'); location.reload(); };
+
+    ui.tabContacts.onclick = ()=> setTab('contacts');
+    ui.tabGroups.onclick = ()=> setTab('groups');
+    ui.searchInput.oninput = ()=> renderList();
+
+    ui.addContactBtn.onclick = ()=>{ if(ui.addContactInput.value.trim()) { addContact(ui.addContactInput.value); ui.addContactInput.value=''; } };
+
+    ui.createGroupBtn.onclick = ()=>{
+      const name = ui.groupNameInput.value.trim();
+      if(!name) return;
+      const gid = createGroup(name); ui.groupNameInput.value=''; selectGroup(gid);
+    };
+
+    ui.sendBtn.onclick = sendCurrent;
+    ui.msgInput.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendCurrent(); }
+    });
+
+    function sendCurrent(){
+      const text = ui.msgInput.value.trim(); if(!text) return;
+      if(state.selected?.type==='dm'){
+        sendDM(state.selected.with, text);
+      } else if(state.selected?.type==='group'){
+        sendGroup(state.selected.gid, text);
+      }
+      ui.msgInput.value='';
+      renderMessages();
+      renderList();
+    }
+
+    ui.addMemberBtn.onclick = ()=>{
+      if(state.selected?.type !== 'group') return;
+      const username = prompt('Nombre del usuario a agregar al grupo:');
+      if(username && username.trim()){
+        addToGroup(state.selected.gid, username.trim());
+        selectGroup(state.selected.gid);
+      }
+    };
+
+    // ============ Importar/Exportar (para llevar tus datos a otro navegador) ============
+    ui.exportBtn.onclick = ()=>{
+      const data = localStorage.getItem(DB_KEY)||'';
+      const blob = new Blob([data], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='minichat-datos.json'; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    };
+
+    ui.importBtn.onclick = ()=>{
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json';
+      input.onchange = async (e)=>{
+        const file = e.target.files?.[0];
+        if(!file) return;
+        try{
+          const text = await file.text();
+          JSON.parse(text); // validar
+          localStorage.setItem(DB_KEY, text);
+          alert('Datos importados. Se recargará la página.');
+          location.reload();
+        }catch(err){
+          alert('Archivo inválido. Asegúrate de seleccionar el JSON exportado.');
+        }
+      };
+      input.click();
+    };
+
+    // Si ya había una sesión en memoria, mostrar la app
+    (function autoSession(){
+      const db = loadDB();
+      const lastUser = sessionStorage.getItem('minichat_last_user');
+      if(lastUser && db.users[lastUser]){ Session.current = lastUser; showApp(); }
+    })();
+  </script>
+</body>
+</html>
